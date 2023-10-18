@@ -2,7 +2,11 @@ import tensorflow as tf
 import numpy as np
 import matplotlib.pyplot as plt
 from tensorflow.keras.utils import plot_model
+import pandas as pd
+
 # print(tf.__version__)
+
+
 #
 #
 ## features
@@ -137,7 +141,6 @@ plt.scatter(x_train,y_train,c="b",label="training data")
 model = tf.keras.Sequential([
     tf.keras.layers.Dense(10,input_shape=[1], name="input_layer"),
     tf.keras.layers.Dense(1, name='output_layer')
-
 ],name ='model_1')
 
 model.compile(loss=tf.keras.losses.mae,
@@ -166,10 +169,10 @@ def plottingfunction(
 
 
 def mae(y_true,y_pred):
-    return tf.metrics.mean_absolute_error(y_true=y_true,y_pred=y_pred)
+    return tf.metrics.mean_absolute_error(y_true=y_true,y_pred=tf.squeeze(y_pred))
 
-def mse(y_true,y_pred):
-    return tf.metrics.mean_squared_error(y_true=y_true,y_pred=y_pred)
+def mse(y_true,y_pred=y_pred):
+    return tf.metrics.mean_squared_error(y_true=y_true,y_pred=tf.squeeze(y_pred))
 
 tf.random.set_seed(42)
 #
@@ -191,6 +194,7 @@ tf.random.set_seed(42)
 # print(y_pred)
 
 #model 1
+tf.random.set_seed(42)
 
 model_1 = tf.keras.Sequential([
     tf.keras.layers.Dense(1)
@@ -200,23 +204,30 @@ model_1.compile(loss=tf.keras.losses.mae,
               optimizer=tf.keras.optimizers.SGD(),
               metrics=['mae'])
 
-model_1.fit(tf.expand_dims(x_train,axis=-1),y_train,epochs=100)
+model_1.fit(tf.expand_dims(x_train,axis=-1),y_train,epochs=100,verbose=0)
 
 y_pred_1 = model_1.predict(x_test)
 
+tf.random.set_seed(42)
+
 model_2 = tf.keras.Sequential([
-    tf.keras.layers.Dense(1)
+    tf.keras.layers.Dense(10),
+    tf.keras.layers.Dense(1),
 ])
 
 model_2.compile(loss=tf.keras.losses.mae,
                 optimizer=tf.keras.optimizers.SGD(),
-                metrics=['mae'])
+                metrics=['mse'])
 
-model_2.fit(tf.expand_dims(x_train,axis=-1),y_train,epochs=100)
+model_2.fit(tf.expand_dims(x_train,axis=-1),y_train,epochs=100,verbose=0)
 
 y_pred_2 = model_2.predict(x_test)
 
+
+tf.random.set_seed(42)
+
 model_3 = tf.keras.Sequential([
+    tf.keras.layers.Dense(10),
     tf.keras.layers.Dense(1)
 ])
 
@@ -224,12 +235,81 @@ model_3.compile(loss=tf.keras.losses.mae,
                 optimizer=tf.keras.optimizers.SGD(),
                 metrics=['mae'])
 
-model_3.fit(tf.expand_dims(x_train, axis=-1), y_train, epochs=200)
+model_3.fit(tf.expand_dims(x_train, axis=-1), y_train, epochs=500,verbose=0)
 
 y_pred_3 = model_3.predict(x_test)
 
-print(y_pred_1,y_pred_2,y_pred_3)
+# print(y_pred_1,y_pred_2,y_pred_3)
 
-plottingfunction(predictions=y_pred_1)
-plottingfunction(predictions=y_pred_2)
-plottingfunction(predictions=y_pred_3)
+# plottingfunction(predictions=y_pred_1)
+# plottingfunction(predictions=y_pred_2)
+# plottingfunction(predictions=y_pred_3)
+
+
+mae_1 =mae(y_test, y_pred_1)
+mse_1 = mse(y_test, y_pred_1)
+
+mae_2 =mae(y_test, y_pred_2)
+mse_2 = mse(y_test, y_pred_2)
+
+mae_3 =mae(y_test, y_pred_3)
+mse_3 = mse(y_test, y_pred_3)
+
+print('---------')
+print(mae_1,mse_1)
+print('---------')
+print(mae_2,mse_2)
+print('---------')
+print(mae_3,mse_3)
+
+
+model_results = [
+    ["model_1", mae_1.numpy(),mse_1.numpy()],
+    ["model_2", mae_2.numpy(), mse_2.numpy()],
+    ["model_3", mae_3.numpy(), mse_3.numpy()],
+                 ]
+
+all_results = pd.DataFrame(model_results,columns=['model','mae','mse'])
+
+# print(all_results)
+# print(model_2.summary())
+
+## Two main way to save the model.
+
+#1.The SavedModel format
+#2. The HDF5 format
+
+# model_2.save('best_model')
+
+# model_2.save('best_model_hfive.h5')
+
+loaded_savedmodel = tf.keras.models.load_model('best_model')
+
+loaded_savedmodel.summary()
+
+model_2.summary()
+
+model_2_preds = model_2.predict(x_test)
+loaded_savedmodel_preds = loaded_savedmodel.predict(x_test)
+
+
+print(model_2_preds)
+print('-----')
+print(loaded_savedmodel_preds)
+
+print(mae(y_test,model_2_preds) == mae(y_test,loaded_savedmodel_preds))
+
+loaded_savedmodel_2 = tf.keras.models.load_model('best_model_hfive.h5')
+loaded_savedmodel_2.summary()
+
+model_2.summary()
+
+model_2_preds = model_2.predict(x_test)
+loaded_savedmodel_preds = loaded_savedmodel_2.predict(x_test)
+
+
+print(model_2_preds)
+print('-----')
+print(loaded_savedmodel_preds)
+
+print(model_2_preds==loaded_savedmodel_preds)
